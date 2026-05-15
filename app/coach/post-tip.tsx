@@ -95,7 +95,7 @@ export default function PostTipScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          <Text style={styles.label}>Action concernée</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Action concernée</Text>
           <View style={[styles.searchContainer, { backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }]}>
             <Ionicons name="search" size={20} color={colors.subtext} />
             <TextInput
@@ -141,7 +141,7 @@ export default function PostTipScreen() {
             </View>
           )}
 
-          <Text style={styles.label}>Votre recommandation</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Votre recommandation</Text>
           <View style={styles.tipTypeRow}>
             {TIP_TYPES.map((type) => (
               <TouchableOpacity
@@ -168,7 +168,7 @@ export default function PostTipScreen() {
             ))}
           </View>
 
-          <Text style={styles.label}>Analyse & Justification</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Analyse & Justification</Text>
           <TextInput
             style={[
               styles.textArea, 

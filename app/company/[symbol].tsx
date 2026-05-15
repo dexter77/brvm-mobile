@@ -40,6 +40,7 @@ type MarketItem = {
   volume: number;
   date: string;
   logo_url?: string;
+  description?: string;
 };
 
 export default function CompanyScreen() {
@@ -819,8 +820,7 @@ export default function CompanyScreen() {
 
           <View style={styles.noteCard}>
             <Text style={styles.noteText}>
-              Cette fiche te permet de consulter la valeur BRVM et d’ajouter
-              rapidement cette ligne à ton Bedou personnel.
+              {data.description || "Cette fiche te permet de consulter la valeur BRVM et d’ajouter rapidement cette ligne à ton Bedou personnel."}
             </Text>
           </View>
         </View>
@@ -1095,23 +1095,24 @@ export default function CompanyScreen() {
                 </View>
               )}
 
-              <View style={styles.modalActionRow}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: '#1e293b', flex: 1, marginRight: 8 }]}
-                  onPress={() => setSellModalVisible(false)}
-                >
-                  <Text style={{ color: '#f1f5f9', fontWeight: '600', textAlign: 'center' }}>Annuler</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: '#ef4444', flex: 1, marginLeft: 8, opacity: submitting ? 0.6 : 1 }]}
-                  onPress={handleSell}
-                  disabled={submitting}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '700', textAlign: 'center' }}>
-                    {submitting ? 'Traitement...' : 'Confirmer la vente'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: '#ef4444', marginTop: 10, opacity: submitting ? 0.6 : 1 }]}
+                onPress={handleSell}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Confirmer la vente</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ marginTop: 15, alignItems: 'center' }}
+                onPress={() => setSellModalVisible(false)}
+              >
+                <Text style={{ color: '#94a3b8', fontSize: 14 }}>Annuler</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -1754,5 +1755,16 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 15,
     fontWeight: "700",
+  },
+  modalActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 20,
+  },
+  modalBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

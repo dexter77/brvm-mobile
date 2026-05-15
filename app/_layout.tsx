@@ -25,6 +25,8 @@ Notifications.setNotificationHandler({
 });
 
 async function registerForPushNotifications() {
+  if (Platform.OS === 'web') return null;
+  
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -39,11 +41,15 @@ async function registerForPushNotifications() {
       return null;
     }
 
+    // On iOS, with a free developer account, this might fail or hang if the capability is missing
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId: 'a894c031-3ffe-47e5-8561-8e6d62894b2f',
+    }).catch(err => {
+      console.warn('Erreur lors de la récupération du token Expo:', err);
+      return null;
     });
 
-    return tokenData.data;
+    return tokenData?.data || null;
   } catch (e) {
     console.log('Erreur token push:', e);
     return null;
@@ -97,6 +103,14 @@ export default function RootLayout() {
 
   const segments = useSegments();
 
+  // Cache le splash screen dès que l'initialisation de base est faite
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isLoading]);
+
+  // Gère la redirection une fois que la navigation est prête
   useEffect(() => {
     if (isLoading || !rootNavigationState?.key) return;
 
@@ -107,8 +121,6 @@ export default function RootLayout() {
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/');
     }
-
-    SplashScreen.hideAsync();
   }, [isLoading, isAuthenticated, segments, rootNavigationState?.key, router]);
 
   const loginAuth = async (access: string, refresh: string) => {
