@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.50:8000/api/v1';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://brvm-backend-production.up.railway.app/api/v1';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

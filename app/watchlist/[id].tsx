@@ -142,7 +142,7 @@ export default function WatchlistDetailScreen() {
           {close !== null ? (
             <>
               <Text style={[styles.itemPrice, { color: colors.text }]}>
-                CFA{close.toLocaleString('fr-FR')}
+                {close.toLocaleString('fr-FR')} FCFA
               </Text>
               <Text style={[styles.itemVar, { color: varColor }]}>
                 {variation !== null ? `${varPrefix}${variation.toFixed(2)}%` : '—'}
@@ -237,7 +237,7 @@ export default function WatchlistDetailScreen() {
                   <View style={styles.itemRight}>
                     {close !== null ? (
                       <>
-                        <Text style={[styles.itemPrice, { color: colors.text }]}>CFA{close.toLocaleString('fr-FR')}</Text>
+                        <Text style={[styles.itemPrice, { color: colors.text }]}>{close.toLocaleString('fr-FR')} FCFA</Text>
                         <Text style={[styles.itemVar, { color: varColor }]}>{variation !== null ? `${varPrefix}${variation.toFixed(2)}%` : '—'}</Text>
                       </>
                     ) : (
