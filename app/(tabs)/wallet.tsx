@@ -863,14 +863,17 @@ export default function WalletScreen() {
 
 
 
-          {/* Bloc Performances */}
+          {/* Bloc Performances & Diagnostic */}
           {portfolio && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>📈 Performances</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>📈 Performances & Diagnostic</Text>
               </View>
-              <View style={styles.investCard}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              
+              <View style={[styles.investCard, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'column', alignItems: 'stretch', paddingVertical: 14 }]}>
+                
+                {/* Section Rendements Simples */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 14 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: '#94a3b8', fontSize: 13, marginBottom: 4 }}>Année en cours</Text>
                     <Text style={{ 
@@ -893,6 +896,167 @@ export default function WalletScreen() {
                     </Text>
                   </View>
                 </View>
+
+                {portfolio.performance_diagnostics && (
+                  <>
+                    <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4, opacity: 0.5 }} />
+                    
+                    {/* 1. Bêta du Portefeuille */}
+                    <View style={{ marginVertical: 12 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 16, marginRight: 6 }}>⚖️</Text>
+                          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>Bêta du Portefeuille</Text>
+                        </View>
+                        {(() => {
+                          const beta = portfolio.performance_diagnostics.portfolio_beta ?? 1.0;
+                          let badgeColor = '#38bdf8'; // Balanced
+                          let badgeBg = 'rgba(56, 189, 248, 0.15)';
+                          let badgeLabel = 'Équilibré';
+                          
+                          if (beta > 1.1) {
+                            badgeColor = '#c084fc'; // Agressive
+                            badgeBg = 'rgba(192, 132, 252, 0.15)';
+                            badgeLabel = 'Agressif';
+                          } else if (beta < 0.9) {
+                            badgeColor = '#34d399'; // Defensive
+                            badgeBg = 'rgba(52, 211, 153, 0.15)';
+                            badgeLabel = 'Défensif';
+                          }
+                          
+                          return (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={{ color: colors.text, fontSize: 15, fontWeight: '800', marginRight: 8 }}>{beta.toFixed(2)}</Text>
+                              <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: badgeBg }}>
+                                <Text style={{ color: badgeColor, fontSize: 11, fontWeight: '700' }}>{badgeLabel}</Text>
+                              </View>
+                            </View>
+                          );
+                        })()}
+                      </View>
+                      <Text style={{ color: colors.subtext || '#94a3b8', fontSize: 12, lineHeight: 16 }}>
+                        Indique la sensibilité de votre Bedou face aux fluctuations du marché BRVM. Un bêta de 1.0 évolue comme le marché.
+                      </Text>
+                    </View>
+
+                    <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4, opacity: 0.5 }} />
+
+                    {/* 2. Ratio de Sharpe */}
+                    <View style={{ marginVertical: 12 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 16, marginRight: 6 }}>⚡</Text>
+                          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>Ratio de Sharpe</Text>
+                        </View>
+                        {(() => {
+                          const hasHistory = portfolio.performance_diagnostics.has_sufficient_history;
+                          const sharpe = portfolio.performance_diagnostics.sharpe_ratio;
+                          
+                          if (!hasHistory || sharpe === null) {
+                            return (
+                              <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(148, 163, 184, 0.15)' }}>
+                                <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '700' }}>Incomplet</Text>
+                              </View>
+                            );
+                          }
+                          
+                          let badgeColor = '#10b981'; // Excellent
+                          let badgeBg = 'rgba(16, 185, 129, 0.15)';
+                          let badgeLabel = 'Excellent';
+                          
+                          if (sharpe < 0) {
+                            badgeColor = '#ff5252';
+                            badgeBg = 'rgba(255, 82, 82, 0.15)';
+                            badgeLabel = 'Insuffisant';
+                          } else if (sharpe < 0.5) {
+                            badgeColor = '#f59e0b';
+                            badgeBg = 'rgba(245, 158, 11, 0.15)';
+                            badgeLabel = 'Moyen';
+                          } else if (sharpe < 1.0) {
+                            badgeColor = '#84cc16';
+                            badgeBg = 'rgba(132, 204, 22, 0.15)';
+                            badgeLabel = 'Bon';
+                          }
+                          
+                          return (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={{ color: colors.text, fontSize: 15, fontWeight: '800', marginRight: 8 }}>{sharpe.toFixed(2)}</Text>
+                              <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: badgeBg }}>
+                                <Text style={{ color: badgeColor, fontSize: 11, fontWeight: '700' }}>{badgeLabel}</Text>
+                              </View>
+                            </View>
+                          );
+                        })()}
+                      </View>
+                      <Text style={{ color: colors.subtext || '#94a3b8', fontSize: 12, lineHeight: 16 }}>
+                        {!portfolio.performance_diagnostics.has_sufficient_history ? (
+                          `Nécessite au moins 3 mois d'historique de performance. (Actuel : ${portfolio.performance_diagnostics.current_snapshots_count}/3)`
+                        ) : (
+                          "Mesure l'efficience de votre portefeuille. Indique si la performance générée justifie la volatilité supportée."
+                        )}
+                      </Text>
+                    </View>
+
+                    <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4, opacity: 0.5 }} />
+
+                    {/* 3. Ratio de Treynor */}
+                    <View style={{ marginTop: 12, marginBottom: 4 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 16, marginRight: 6 }}>🎯</Text>
+                          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>Ratio de Treynor</Text>
+                        </View>
+                        {(() => {
+                          const hasHistory = portfolio.performance_diagnostics.has_sufficient_history;
+                          const treynor = portfolio.performance_diagnostics.treynor_ratio;
+                          
+                          if (!hasHistory || treynor === null) {
+                            return (
+                              <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(148, 163, 184, 0.15)' }}>
+                                <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '700' }}>Incomplet</Text>
+                              </View>
+                            );
+                          }
+                          
+                          let badgeColor = '#10b981'; // Excellent (>10%)
+                          let badgeBg = 'rgba(16, 185, 129, 0.15)';
+                          let badgeLabel = 'Optimisé';
+                          
+                          if (treynor < 0) {
+                            badgeColor = '#ff5252';
+                            badgeBg = 'rgba(255, 82, 82, 0.15)';
+                            badgeLabel = 'Négatif';
+                          } else if (treynor < 5.0) {
+                            badgeColor = '#f59e0b';
+                            badgeBg = 'rgba(245, 158, 11, 0.15)';
+                            badgeLabel = 'Modéré';
+                          } else if (treynor < 10.0) {
+                            badgeColor = '#84cc16';
+                            badgeBg = 'rgba(132, 204, 22, 0.15)';
+                            badgeLabel = 'Performant';
+                          }
+                          
+                          return (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={{ color: colors.text, fontSize: 15, fontWeight: '800', marginRight: 8 }}>{treynor.toFixed(2)}%</Text>
+                              <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: badgeBg }}>
+                                <Text style={{ color: badgeColor, fontSize: 11, fontWeight: '700' }}>{badgeLabel}</Text>
+                              </View>
+                            </View>
+                          );
+                        })()}
+                      </View>
+                      <Text style={{ color: colors.subtext || '#94a3b8', fontSize: 12, lineHeight: 16 }}>
+                        {!portfolio.performance_diagnostics.has_sufficient_history ? (
+                          `Nécessite au moins 3 mois d'historique de performance. (Actuel : ${portfolio.performance_diagnostics.current_snapshots_count}/3)`
+                        ) : (
+                          "Évalue le rendement excédentaire par unité de risque systématique (Bêta). Idéal pour les portefeuilles diversifiés."
+                        )}
+                      </Text>
+                    </View>
+                  </>
+                )}
+
               </View>
             </View>
           )}
