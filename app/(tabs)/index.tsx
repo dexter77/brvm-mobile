@@ -82,6 +82,7 @@ export default function HomeScreen() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [txSummary, setTxSummary] = useState<any>(null);
   const [dividends, setDividends] = useState<any[]>([]);
+  const [unclaimedDividends, setUnclaimedDividends] = useState<any[]>([]);
 
   // Charger le compteur de notifications non lues
   const loadUnreadCount = useCallback(async () => {
@@ -113,7 +114,7 @@ export default function HomeScreen() {
   const loadData = async (showLoading = true) => {
     try {
       if (showLoading) setIsLoading(true);
-      const [userRes, walletRes, portfolioRes, watchlistsRes, marketRes, adsRes, consolidatedRes, txSummaryRes, txRes] =
+      const [userRes, walletRes, portfolioRes, watchlistsRes, marketRes, adsRes, consolidatedRes, txSummaryRes, txRes, unclaimedRes] =
         await Promise.all([
           apiClient.get('/users/'),
           apiClient.get('/wallet/'),
@@ -124,6 +125,7 @@ export default function HomeScreen() {
           apiClient.get('/investments/consolidated/'),
           apiClient.get('/transactions/summary/'),
           apiClient.get('/transactions/'),
+          apiClient.get('/portfolios/unclaimed-dividends/').catch(() => ({ data: [] })),
         ]);
 
       setUser(userRes.data);
@@ -132,7 +134,8 @@ export default function HomeScreen() {
       setConsolidatedData(consolidatedRes.data);
       setWatchlists(watchlistsRes.data || []);
       setTxSummary(txSummaryRes.data);
-      
+      setUnclaimedDividends(unclaimedRes.data || []);
+
       const allTx = txRes.data?.results || txRes.data || [];
       const divOnly = allTx.filter((t: any) => t.transaction_type === 'DIVIDEND');
       setDividends(divOnly);
@@ -142,7 +145,7 @@ export default function HomeScreen() {
         ['BRVMC', 'BRVM30', 'BRVMP'].includes(item.symbol)
       );
       setIndices(brvmIndices);
-      
+
       if (adsRes.data && adsRes.data.length > 0) {
         setActiveAd(adsRes.data[0]);
       }
@@ -205,8 +208,8 @@ export default function HomeScreen() {
       `Êtes-vous sûr de vouloir supprimer "${name}" ?`,
       [
         { text: 'Annuler', style: 'cancel' },
-        { 
-          text: 'Supprimer', 
+        {
+          text: 'Supprimer',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -220,6 +223,29 @@ export default function HomeScreen() {
         }
       ]
     );
+  };
+
+  const handleClaimDividend = async (div: any) => {
+    setSubmitting(true);
+    try {
+      await apiClient.post('/transactions/', {
+        transaction_type: 'DIVIDEND',
+        amount: parseFloat(div.amount),
+        description: `Dividende reçu de ${div.symbol} (${div.year})`,
+        portfolio: div.portfolio_id,
+        reference_number: div.reference_number
+      });
+      Alert.alert('💰 Dividende encaissé !', `Les ${parseFloat(div.amount).toLocaleString('fr-FR')} FCFA ont été ajoutés à votre Bedou.`);
+      loadData(false);
+    } catch (e: any) {
+      if (e.response?.data?.error) {
+         Alert.alert('Info', e.response.data.error);
+      } else {
+         Alert.alert('Erreur', "Impossible d'encaisser le dividende.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAddFunds = async () => {
@@ -361,8 +387,8 @@ export default function HomeScreen() {
         }
       >
         <Animated.View entering={FadeInUp.duration(600)} style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity 
-            style={[styles.avatar, { backgroundColor: colors.primary, marginRight: 15 }]} 
+          <TouchableOpacity
+            style={[styles.avatar, { backgroundColor: colors.primary, marginRight: 15 }]}
             onPress={() => router.push('/profile' as any)}
           >
             <Text style={styles.avatarText}>{user?.first_name?.charAt(0) || 'U'}</Text>
@@ -390,8 +416,8 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <TouchableOpacity 
-            style={styles.supportBtn} 
+          <TouchableOpacity
+            style={styles.supportBtn}
             onPress={() => {
               Alert.alert(
                 'Contactez-nous',
@@ -438,14 +464,14 @@ export default function HomeScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Text style={styles.mainCardLabel}>Solde total</Text>
             <TouchableOpacity onPress={toggleBalanceVisibility} style={{ padding: 4 }}>
-              <Ionicons 
-                name={isBalanceVisible ? "eye-outline" : "eye-off-outline"} 
-                size={22} 
-                color="#ffffff" 
+              <Ionicons
+                name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
+                size={22}
+                color="#ffffff"
               />
             </TouchableOpacity>
           </View>
-          
+
           <Text style={styles.mainCardAmount}>
             {maskValue(getTotalBalance())} FCFA
           </Text>
@@ -457,7 +483,7 @@ export default function HomeScreen() {
                 {maskValue(consolidatedData?.total_balance ?? wallet?.balance)} FCFA
               </Text>
             </View>
-            
+
             <View style={styles.mainCardCol}>
               <Text style={styles.chipLabel}>Valeur du Portefeuille</Text>
               <Text style={styles.chipValue}>
@@ -498,7 +524,7 @@ export default function HomeScreen() {
               </View>
 
               {(() => {
-                const perf = consolidatedData 
+                const perf = consolidatedData
                   ? parseFloat(consolidatedData.total_gain_loss_percentage || 0)
                   : parseFloat(portfolio?.totalGainLossPercentage || 0);
                 const color = perf > 0 ? '#10b981' : perf < 0 ? '#ff5252' : '#e5e7eb';
@@ -556,6 +582,7 @@ export default function HomeScreen() {
                 router.push('/academy/questionnaire' as any);
               }
             }},
+            { icon: '💰', label: 'Dividendes', onPress: () => router.push('/dividends' as any) },
             { icon: '📈', label: 'Classement', onPress: () => router.push('/leaderboard' as any) },
             { icon: '📰', label: 'Nouvelles', onPress: () => router.push('/news' as any) },
           ].map((item) => (
@@ -628,9 +655,43 @@ export default function HomeScreen() {
         {/* Dividendes Reçus */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>💰 Dividendes Reçus sur l'année</Text>
+            <Text style={styles.sectionTitle}>💰 Mes Dividendes</Text>
           </View>
-          
+
+          {/* Dividendes à réclamer */}
+          {unclaimedDividends.length > 0 && (
+            <View style={{ marginBottom: 15 }}>
+              <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 10 }}> À encaisser</Text>
+              {unclaimedDividends.map((div) => (
+                <View key={div.id} style={[styles.dividendMainCard, { backgroundColor: '#fef3c7', borderColor: '#fde68a', marginBottom: 8 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#92400e', fontSize: 14, fontWeight: '700' }}>{div.symbol}</Text>
+                      <Text style={{ color: '#b45309', fontSize: 12 }}>
+                        {parseFloat(div.quantity).toLocaleString('fr-FR')} actions • Prévu le {new Date(div.payment_date).toLocaleDateString('fr-FR')}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', marginRight: 10 }}>
+                      <Text style={{ color: '#92400e', fontSize: 16, fontWeight: '800' }}>+{parseFloat(div.amount).toLocaleString('fr-FR')} F</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#f59e0b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+                      onPress={() => handleClaimDividend(div)}
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>Encaisser</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 10 }}>✅ Déjà encaissés sur l'année</Text>
           <View style={[styles.dividendMainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.dividendMainHeader}>
               <View>
@@ -643,18 +704,18 @@ export default function HomeScreen() {
                 <Ionicons name="calendar-outline" size={28} color="#f59e0b" />
               </View>
             </View>
-            
+
             {(() => {
               const currentYear = new Date().getFullYear();
               const annualDivs = dividends.filter(d => new Date(d.created_at).getFullYear() === currentYear);
-              
+
               if (annualDivs.length > 0) {
                 return (
                   <View style={styles.dividendList}>
                     {annualDivs.slice(0, 3).map((div) => {
                       const company = div.description.replace('Dividende reçu de ', '').replace('Dividende reçu ', '');
                       const pName = div.portfolio_name || 'Bedou';
-                      
+
                       return (
                         <View key={div.id} style={styles.dividendItem}>
                           <View style={styles.dividendItemLeft}>
@@ -1005,23 +1066,23 @@ export default function HomeScreen() {
       >
         <View style={styles.adOverlay}>
           <Animated.View entering={FadeInUp.duration(500)} style={[styles.adContainer, { backgroundColor: colors.card }]}>
-            <TouchableOpacity 
-              style={styles.adCloseBtn} 
+            <TouchableOpacity
+              style={styles.adCloseBtn}
               onPress={() => setAdVisible(false)}
             >
               <Ionicons name="close-circle" size={32} color="#fff" />
             </TouchableOpacity>
 
-            <Image 
-              source={{ 
-                uri: activeAd?.image 
-                  ? (activeAd.image.startsWith('http') ? activeAd.image : 'http://localhost:8000' + activeAd.image) 
-                  : 'https://via.placeholder.com/400x250' 
-              }} 
+            <Image
+              source={{
+                uri: activeAd?.image
+                  ? (activeAd.image.startsWith('http') ? activeAd.image : 'http://localhost:8000' + activeAd.image)
+                  : 'https://via.placeholder.com/400x250'
+              }}
               style={styles.adImage}
               resizeMode="cover"
             />
-            
+
             <View style={styles.adContent}>
               <View style={styles.adBadge}>
                 <Text style={styles.adBadgeText}>OFFRE EXCLUSIVE</Text>
@@ -1030,14 +1091,14 @@ export default function HomeScreen() {
               <Text style={[styles.adDesc, { color: colors.subtext }]}>
                 {activeAd?.description || ''}
               </Text>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={[styles.adCta, { backgroundColor: colors.primary }]}
                 onPress={() => {
                   setAdVisible(false);
                   // Enregistrer le clic
                   apiClient.post(`/ads/${activeAd.id}/interact/`, { type: 'CLICK' }).catch(() => {});
-                  
+
                   if (activeAd?.cta_link) {
                     if (activeAd.cta_link.startsWith('http')) {
                       Linking.openURL(activeAd.cta_link);
@@ -1050,8 +1111,8 @@ export default function HomeScreen() {
                 <Text style={styles.adCtaText}>{activeAd?.cta_text || 'Découvrir'}</Text>
                 <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.adMaybeLater}
                 onPress={() => setAdVisible(false)}
               >
@@ -1564,7 +1625,7 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
-  
+
   // Ad Modal Styles
   adOverlay: {
     flex: 1,
