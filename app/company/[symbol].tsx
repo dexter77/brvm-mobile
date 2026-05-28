@@ -41,6 +41,11 @@ type MarketItem = {
   date: string;
   logo_url?: string;
   description?: string;
+  outstanding_shares?: number;
+  market_cap?: number;
+  per?: string;
+  roe?: string;
+  dividend_yield?: string;
 };
 
 type FinancialRatios = {
@@ -61,7 +66,7 @@ type FinancialRatios = {
   description: string;
 };
 
-function getFinancialRatios(symbol: string, price: number): FinancialRatios {
+function getFinancialRatios(symbol: string, price: number, dynamicMarketCap?: number, dynamicPER?: number, dynamicROE?: number, dynamicYield?: number): FinancialRatios {
   const sym = symbol?.toUpperCase().trim() || "";
   
   // Base default values derived deterministically from symbol character codes so they are completely stable
@@ -75,77 +80,27 @@ function getFinancialRatios(symbol: string, price: number): FinancialRatios {
   const seedROE = 8 + (charSum % 18); // 8% to 26%
   const seedYield = 4.5 + ((charSum * 3) % 7); // 4.5% to 11.5%
   
-  // Capitalisation (realistic BRVM ranges in Billion FCFA)
-  let marketCapVal = 20 + (charSum % 180); // in Billion FCFA
+  // Capitalisation : Use dynamic value from backend if available
+  let marketCapVal = dynamicMarketCap 
+    ? dynamicMarketCap / 1000000000 // Convert FCFA to Billions
+    : 20 + (charSum % 180); // in Billion FCFA Fallback
+  
   let netProfitVal = (marketCapVal * (seedROE / 100)) / (seedPER / 10 || 1.2); 
   
   // Custom definitions for the biggest BRVM stocks to make it extremely premium and high-fidelity
-  let per = seedPER;
-  let roe = seedROE;
-  let dividendYield = seedYield;
+  let per = dynamicPER ? dynamicPER : seedPER;
+  let roe = dynamicROE ? dynamicROE : seedROE;
+  let dividendYield = dynamicYield ? dynamicYield : seedYield;
   let capInBillion = marketCapVal;
   let netProfitBillion = netProfitVal;
   
-  if (sym === "SNTS" || sym === "SONATEL") {
-    per = 9.8;
-    roe = 24.2;
-    dividendYield = 8.5;
-    capInBillion = 1680;
-    netProfitBillion = 278.4;
-  } else if (sym === "SGBC" || sym === "SGBCI") {
-    per = 7.4;
-    roe = 19.5;
-    dividendYield = 8.1;
-    capInBillion = 412.5;
-    netProfitBillion = 58.6;
-  } else if (sym === "ORAC" || sym === "ORANGE CI") {
-    per = 10.2;
-    roe = 26.5;
-    dividendYield = 8.2;
-    capInBillion = 1530;
-    netProfitBillion = 156.2;
-  } else if (sym === "BOAC" || sym === "BANK OF AFRICA CI") {
-    per = 6.2;
-    roe = 17.8;
-    dividendYield = 9.4;
-    capInBillion = 135;
-    netProfitBillion = 21.8;
-  } else if (sym === "PALC" || sym === "PALMCI") {
-    per = 4.2;
-    roe = 28.5;
-    dividendYield = 11.8;
-    capInBillion = 98.4;
-    netProfitBillion = 24.2;
-  } else if (sym === "ONTBF" || sym === "ONATEL BF") {
-    per = 7.1;
-    roe = 16.4;
-    dividendYield = 10.2;
-    capInBillion = 115;
-    netProfitBillion = 16.2;
-  } else if (sym === "TTLC" || sym === "TOTAL CI") {
-    per = 8.8;
-    roe = 22.0;
-    dividendYield = 8.8;
-    capInBillion = 185.6;
-    netProfitBillion = 21.1;
-  } else if (sym === "BOAB" || sym === "BANK OF AFRICA BENIN") {
-    per = 5.9;
-    roe = 16.8;
-    dividendYield = 9.6;
-    capInBillion = 112.4;
-    netProfitBillion = 19.0;
-  } else if (sym === "BOABF" || sym === "BANK OF AFRICA BF") {
-    per = 6.4;
-    roe = 18.2;
-    dividendYield = 9.1;
-    capInBillion = 120.5;
-    netProfitBillion = 18.8;
-  } else if (sym === "ETIT" || sym === "ETI TG") {
-    per = 5.2;
-    roe = 12.8;
-    dividendYield = 7.5;
-    capInBillion = 342;
-    netProfitBillion = 65.8;
+  // Override with exact dynamic data if available from backend
+  if (dynamicMarketCap) {
+    capInBillion = dynamicMarketCap / 1000000000;
+    // Calcul mathématique réel : Résultat Net = Capitalisation / PER
+    if (per > 0) {
+      netProfitBillion = capInBillion / per;
+    }
   }
   
   // Status and color mapping
@@ -618,8 +573,15 @@ export default function CompanyScreen() {
   const ownedValue = ownedQuantity * price;
 
   const ratios = useMemo(() => {
-    return getFinancialRatios(symbol || "", price);
-  }, [symbol, price]);
+    return getFinancialRatios(
+      symbol || "", 
+      price, 
+      data?.market_cap,
+      data?.per ? parseFloat(data.per) : undefined,
+      data?.roe ? parseFloat(data.roe) : undefined,
+      data?.dividend_yield ? parseFloat(data.dividend_yield) : undefined
+    );
+  }, [symbol, price, data?.market_cap, data?.per, data?.roe, data?.dividend_yield]);
 
   const isBankingSector = useMemo(() => {
     if (!data) return false;
@@ -633,31 +595,8 @@ export default function CompanyScreen() {
   }, [data]);
 
   const divData = useMemo(() => {
-    // Helper to get deterministic profit
-    const getSymbolNetProfit = (sym: string): number => {
-      const s = sym.toUpperCase().trim();
-      if (s === "SNTS" || s === "SONATEL") return 278.4;
-      if (s === "SGBC" || s === "SGBCI") return 58.6;
-      if (s === "ORAC" || s === "ORANGE CI") return 156.2;
-      if (s === "BOAC" || s === "BANK OF AFRICA CI") return 21.8;
-      if (s === "PALC" || s === "PALMCI") return 24.2;
-      if (s === "ONTBF" || s === "ONATEL BF") return 16.2;
-      if (s === "TTLC" || s === "TOTAL CI") return 21.1;
-      if (s === "BOAB" || s === "BANK OF AFRICA BENIN") return 19.0;
-      if (s === "BOABF" || s === "BANK OF AFRICA BF") return 18.8;
-      if (s === "ETIT" || s === "ETI TG") return 65.8;
-
-      let charSum = 0;
-      for (let i = 0; i < s.length; i++) {
-        charSum += s.charCodeAt(i);
-      }
-      const seedPER = 5 + (charSum % 12);
-      const seedROE = 8 + (charSum % 18);
-      const marketCapVal = 20 + (charSum % 180);
-      return (marketCapVal * (seedROE / 100)) / (seedPER / 10 || 1.2);
-    };
-
-    const latestRN = getSymbolNetProfit(symbol || "");
+    // On utilise directement le résultat net calculé dynamiquement
+    const latestRN = parseFloat(ratios.netProfit) || 10.0;
 
     if (!dividends || dividends.length === 0) {
       const years = ["2020", "2021", "2022", "2023", "2024"];
