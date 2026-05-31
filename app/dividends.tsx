@@ -93,7 +93,7 @@ export default function DividendsScreen() {
     return (
       <View style={[styles.dividendCard, isPast && styles.pastCard]}>
         <View style={styles.cardHeader}>
-          <View>
+          <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={[styles.symbol, isPast && styles.pastText]}>{item.company_symbol}</Text>
             <Text style={styles.companyName}>{item.company_name}</Text>
           </View>

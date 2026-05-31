@@ -1269,91 +1269,127 @@ export default function CompanyScreen() {
                 </View>
               )}
 
-              {/* Graphique Hybride (BarChart pour Dividendes + LineChart en superposition pour REX & RN) */}
-              <View style={{ width: screenWidth - 64, height: 180, position: "relative", alignSelf: "center", marginVertical: 12 }}>
-                <BarChart
-                  data={{
-                    labels: divData.years,
-                    datasets: [
-                      {
-                        data: divData.values,
-                      }
-                    ]
-                  }}
-                  width={screenWidth - 64}
-                  height={180}
-                  yAxisLabel=""
-                  yAxisSuffix=""
-                  chartConfig={{
-                    backgroundColor: colors.card,
-                    backgroundGradientFrom: colors.card,
-                    backgroundGradientTo: colors.card,
-                    decimalPlaces: 0,
-                    color: (opacity = 1) => `rgba(234, 179, 8, ${opacity})`, // Or pour les barres
-                    labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
-                    propsForBackgroundLines: {
-                      strokeDasharray: "5",
-                      strokeWidth: 0.5,
-                      stroke: colors.border,
-                      opacity: 0.3,
-                    },
-                    fillShadowGradient: "#eab308",
-                    fillShadowGradientOpacity: 0.8,
-                  }}
-                  withInnerLines={true}
-                  showBarTops={false}
-                  fromZero={true}
-                  style={{
-                    borderRadius: 12,
-                  }}
-                />
+              {/* Graphique Hybride (BarChart pour REX/RN + LineChart pour Dividendes) */}
+              {(() => {
+                const rex_rn_data: number[] = [];
+                const rex_rn_colors: ((opacity: number) => string)[] = [];
+                const rex_rn_labels: string[] = [];
+                
+                const dividend_data: number[] = [];
+                const hide_dots_indices: number[] = [];
 
-                <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none">
-                  <LineChart
-                    data={{
-                      labels: divData.years,
-                      datasets: [
-                        {
-                          data: divData.rexValues,
-                          color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`, // Vert pour le REX
-                          strokeWidth: 2.5,
+                for (let i = 0; i < divData.years.length; i++) {
+                  // REX (Vert)
+                  rex_rn_data.push(divData.rexValues[i]);
+                  rex_rn_colors.push((opacity = 1) => `rgba(16, 185, 129, ${opacity})`);
+                  
+                  // RN (Bleu)
+                  rex_rn_data.push(divData.rnValues[i]);
+                  rex_rn_colors.push((opacity = 1) => `rgba(56, 189, 248, ${opacity})`);
+                  
+                  // Label aligné sur le REX de chaque année
+                  rex_rn_labels.push(divData.years[i]);
+                  rex_rn_labels.push(""); // Espace vide pour la barre RN
+
+                  // Dividende (Jaune)
+                  const divCurrent = divData.values[i];
+                  dividend_data.push(divCurrent);
+                  
+                  if (i < divData.years.length - 1) {
+                    const divNext = divData.values[i + 1];
+                    dividend_data.push((divCurrent + divNext) / 2);
+                  } else {
+                    dividend_data.push(divCurrent);
+                  }
+
+                  // Masquage des points interpolés
+                  hide_dots_indices.push(2 * i + 1);
+                }
+
+                return (
+                  <View style={{ width: screenWidth - 64, height: 180, position: "relative", alignSelf: "center", marginVertical: 12 }}>
+                    <BarChart
+                      data={{
+                        labels: rex_rn_labels,
+                        datasets: [
+                          {
+                            data: rex_rn_data,
+                            colors: rex_rn_colors,
+                          }
+                        ]
+                      }}
+                      width={screenWidth - 64}
+                      height={180}
+                      yAxisLabel=""
+                      yAxisSuffix=""
+                      withCustomBarColorFromData={true}
+                      chartConfig={{
+                        backgroundColor: colors.card,
+                        backgroundGradientFrom: colors.card,
+                        backgroundGradientTo: colors.card,
+                        decimalPlaces: 1,
+                        color: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
+                        labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
+                        propsForBackgroundLines: {
+                          strokeDasharray: "5",
+                          strokeWidth: 0.5,
+                          stroke: colors.border,
+                          opacity: 0.3,
                         },
-                        {
-                          data: divData.rnValues,
-                          color: (opacity = 1) => `rgba(56, 189, 248, ${opacity})`, // Bleu pour le RN
-                          strokeWidth: 2.5,
-                        }
-                      ]
-                    }}
-                    width={screenWidth - 64}
-                    height={180}
-                    chartConfig={{
-                      backgroundColor: colors.card,
-                      backgroundGradientFrom: colors.card,
-                      backgroundGradientTo: colors.card,
-                      backgroundGradientFromOpacity: 0,
-                      backgroundGradientToOpacity: 0,
-                      color: (opacity = 1) => `transparent`, // Cache la couleur par défaut si pas de couleur par dataset
-                      labelColor: (opacity = 1) => `transparent`, // Cache les labels
-                      propsForDots: {
-                        r: "3.5",
-                        strokeWidth: "1",
-                        stroke: colors.card,
-                      },
-                      fillShadowGradientOpacity: 0,
-                    }}
-                    withInnerLines={false}
-                    withOuterLines={false}
-                    withHorizontalLabels={true}
-                    withVerticalLabels={true}
-                    withShadow={false}
-                    fromZero={true}
-                    style={{
-                      backgroundColor: "transparent",
-                    }}
-                  />
-                </View>
-              </View>
+                        barPercentage: 0.5,
+                      }}
+                      withInnerLines={true}
+                      showBarTops={false}
+                      fromZero={true}
+                      style={{
+                        borderRadius: 12,
+                      }}
+                    />
+
+                    <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none">
+                      <LineChart
+                        data={{
+                          labels: rex_rn_labels,
+                          datasets: [
+                            {
+                              data: dividend_data,
+                              color: (opacity = 1) => `rgba(234, 179, 8, ${opacity})`, // Or/Jaune
+                              strokeWidth: 2.5,
+                            }
+                          ]
+                        }}
+                        width={screenWidth - 64}
+                        height={180}
+                        hidePointsAtIndex={hide_dots_indices}
+                        chartConfig={{
+                          backgroundColor: colors.card,
+                          backgroundGradientFrom: colors.card,
+                          backgroundGradientTo: colors.card,
+                          backgroundGradientFromOpacity: 0,
+                          backgroundGradientToOpacity: 0,
+                          color: (opacity = 1) => `transparent`,
+                          labelColor: (opacity = 1) => `transparent`,
+                          propsForDots: {
+                            r: "3.5",
+                            strokeWidth: "1",
+                            stroke: colors.card,
+                          },
+                          fillShadowGradientOpacity: 0,
+                        }}
+                        withInnerLines={false}
+                        withOuterLines={false}
+                        withHorizontalLabels={false}
+                        withVerticalLabels={false}
+                        withShadow={false}
+                        fromZero={true}
+                        style={{
+                          backgroundColor: "transparent",
+                        }}
+                      />
+                    </View>
+                  </View>
+                );
+              })()}
 
               {/* Légendes en bas de la carte */}
               <View style={{ 

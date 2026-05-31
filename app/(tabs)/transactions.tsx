@@ -36,6 +36,8 @@ const TYPE_CONFIG: any = {
   WITHDRAWAL: { icon: '⬆️', label: 'Retrait', color: '#ef4444' },
   TRANSFER: { icon: '↔️', label: 'Transfert', color: '#38bdf8' },
   INVESTMENT: { icon: '📈', label: 'Investissement', color: '#a78bfa' },
+  BUY: { icon: '🛒', label: 'Achat', color: '#a78bfa' },
+  SELL: { icon: '💵', label: 'Vente', color: '#f472b6' },
   DIVIDEND: { icon: '💰', label: 'Dividende', color: '#f59e0b' },
 };
 
@@ -55,6 +57,21 @@ export default function TransactionsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [filterType, setFilterType] = useState<'ALL' | string>('ALL');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+  const getEffectiveType = (tx: Transaction) => {
+    if (tx.transaction_type === 'INVESTMENT') {
+      const isBuy = tx.reference_number?.startsWith('BUY-') || 
+                    tx.description?.toLowerCase().startsWith('achat') ||
+                    tx.description?.toLowerCase().startsWith('buy');
+      const isSell = tx.reference_number?.startsWith('SELL-') || 
+                     tx.description?.toLowerCase().startsWith('vente') ||
+                     tx.description?.toLowerCase().startsWith('sell');
+      
+      if (isBuy) return 'BUY';
+      if (isSell) return 'SELL';
+    }
+    return tx.transaction_type;
+  };
 
   // Form
   const [txType, setTxType] = useState<'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER' | 'INVESTMENT'>('DEPOSIT');
@@ -120,11 +137,11 @@ export default function TransactionsScreen() {
   const filteredTx =
     filterType === 'ALL'
       ? transactions
-      : transactions.filter((t) => t.transaction_type === filterType);
+      : transactions.filter((t) => getEffectiveType(t) === filterType);
 
   const formatAmount = (amountStr: string, type: string) => {
     const val = parseFloat(amountStr || '0').toLocaleString('fr-FR');
-    const sign = ['DEPOSIT', 'DIVIDEND'].includes(type) ? '+' : '-';
+    const sign = ['DEPOSIT', 'DIVIDEND', 'SELL'].includes(type) ? '+' : '-';
     return `${sign}${val} FCFA`;
   };
 
@@ -236,11 +253,12 @@ export default function TransactionsScreen() {
           >
             {[
               'ALL',
+              'BUY',
+              'SELL',
+              'DIVIDEND',
               'DEPOSIT',
               'WITHDRAWAL',
               'TRANSFER',
-              'INVESTMENT',
-              'DIVIDEND',
             ].map((f) => (
               <TouchableOpacity
                 key={f}
@@ -275,75 +293,76 @@ export default function TransactionsScreen() {
                 </Text>
               </View>
             ) : (
-              filteredTx.map((tx) => (
-                <TouchableOpacity
-                  key={tx.id}
-                  style={styles.txCard}
-                  onPress={() => setSelectedTransaction(tx)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.txLeft}>
-                    <View
-                      style={[
-                        styles.txIconBox,
-                        {
-                          backgroundColor:
-                            TYPE_CONFIG[tx.transaction_type]?.color + '20',
-                        },
-                      ]}
-                    >
-                      <Text style={styles.txIcon}>
-                        {TYPE_CONFIG[tx.transaction_type]?.icon || '💳'}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={styles.txType}>
-                        {TYPE_CONFIG[tx.transaction_type]?.label}
-                      </Text>
-                      <Text style={styles.txDesc} numberOfLines={1}>
-                        {tx.description || tx.reference_number}
-                      </Text>
-                      <Text style={styles.txDate}>
-                        {formatDate(tx.created_at)}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.txRight}>
-                    <Text
-                      style={[
-                        styles.txAmount,
-                        {
-                          color: ['DEPOSIT', 'DIVIDEND'].includes(
-                            tx.transaction_type
-                          )
-                            ? '#10b981'
-                            : '#ef4444',
-                        },
-                      ]}
-                    >
-                      {formatAmount(tx.amount, tx.transaction_type)}
-                    </Text>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        {
-                          backgroundColor:
-                            STATUS_CONFIG[tx.status]?.color + '20',
-                        },
-                      ]}
-                    >
-                      <Text
+              filteredTx.map((tx) => {
+                const type = getEffectiveType(tx);
+                return (
+                  <TouchableOpacity
+                    key={tx.id}
+                    style={styles.txCard}
+                    onPress={() => setSelectedTransaction(tx)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.txLeft}>
+                      <View
                         style={[
-                          styles.statusText,
-                          { color: STATUS_CONFIG[tx.status]?.color },
+                          styles.txIconBox,
+                          {
+                            backgroundColor:
+                              (TYPE_CONFIG[type]?.color || '#a78bfa') + '20',
+                          },
                         ]}
                       >
-                        {STATUS_CONFIG[tx.status]?.label}
-                      </Text>
+                        <Text style={styles.txIcon}>
+                          {TYPE_CONFIG[type]?.icon || '💳'}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={styles.txType}>
+                          {TYPE_CONFIG[type]?.label}
+                        </Text>
+                        <Text style={styles.txDesc} numberOfLines={1}>
+                          {tx.description || tx.reference_number}
+                        </Text>
+                        <Text style={styles.txDate}>
+                          {formatDate(tx.created_at)}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))
+                    <View style={styles.txRight}>
+                      <Text
+                        style={[
+                          styles.txAmount,
+                          {
+                            color: ['DEPOSIT', 'DIVIDEND', 'SELL'].includes(type)
+                              ? '#10b981'
+                              : '#ef4444',
+                          },
+                        ]}
+                      >
+                        {formatAmount(tx.amount, type)}
+                      </Text>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          {
+                            backgroundColor:
+                              STATUS_CONFIG[tx.status]?.color + '20',
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statusText,
+                            { color: STATUS_CONFIG[tx.status]?.color },
+                          ]}
+                        >
+                          {STATUS_CONFIG[tx.status]?.label}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
             )}
           </View>
         </ScrollView>
@@ -476,70 +495,73 @@ export default function TransactionsScreen() {
                 </TouchableOpacity>
               </View>
 
-              {selectedTransaction && (
-                <View>
-                  <View style={{ alignItems: 'center', marginVertical: 20 }}>
-                    <View style={{ 
-                      width: 60, height: 60, borderRadius: 30, 
-                      backgroundColor: TYPE_CONFIG[selectedTransaction.transaction_type]?.color + '20',
-                      justifyContent: 'center', alignItems: 'center', marginBottom: 12
-                    }}>
-                      <Text style={{ fontSize: 30 }}>{TYPE_CONFIG[selectedTransaction.transaction_type]?.icon}</Text>
-                    </View>
-                    <Text style={{ color: '#f1f5f9', fontSize: 24, fontWeight: '800' }}>
-                      {parseFloat(selectedTransaction.amount).toLocaleString('fr-FR')} FCFA
-                    </Text>
-                    <Text style={{ color: '#94a3b8', fontSize: 14, marginTop: 4 }}>
-                      {TYPE_CONFIG[selectedTransaction.transaction_type]?.label}
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailList}>
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>Statut</Text>
+              {selectedTransaction && (() => {
+                const type = getEffectiveType(selectedTransaction);
+                return (
+                  <View>
+                    <View style={{ alignItems: 'center', marginVertical: 20 }}>
                       <View style={{ 
-                        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, 
-                        backgroundColor: STATUS_CONFIG[selectedTransaction.status]?.color + '20' 
+                        width: 60, height: 60, borderRadius: 30, 
+                        backgroundColor: (TYPE_CONFIG[type]?.color || '#a78bfa') + '20',
+                        justifyContent: 'center', alignItems: 'center', marginBottom: 12
                       }}>
-                        <Text style={{ color: STATUS_CONFIG[selectedTransaction.status]?.color, fontWeight: '700', fontSize: 12 }}>
-                          {STATUS_CONFIG[selectedTransaction.status]?.label}
-                        </Text>
+                        <Text style={{ fontSize: 30 }}>{TYPE_CONFIG[type]?.icon}</Text>
                       </View>
+                      <Text style={{ color: '#f1f5f9', fontSize: 24, fontWeight: '800' }}>
+                        {parseFloat(selectedTransaction.amount).toLocaleString('fr-FR')} FCFA
+                      </Text>
+                      <Text style={{ color: '#94a3b8', fontSize: 14, marginTop: 4 }}>
+                        {TYPE_CONFIG[type]?.label}
+                      </Text>
                     </View>
 
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>Compte Bedou</Text>
-                      <Text style={styles.detailValue}>{selectedTransaction.portfolio_name || 'Principal'}</Text>
-                    </View>
-
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>Date</Text>
-                      <Text style={styles.detailValue}>{new Date(selectedTransaction.created_at).toLocaleString('fr-FR')}</Text>
-                    </View>
-
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>Référence</Text>
-                      <Text style={styles.detailValue}>{selectedTransaction.reference_number}</Text>
-                    </View>
-
-                    {selectedTransaction.description && (
-                      <View style={[styles.detailItem, { flexDirection: 'column', alignItems: 'flex-start' }]}>
-                        <Text style={styles.detailLabel}>Description</Text>
-                        <Text style={[styles.detailValue, { marginTop: 4, color: '#94a3b8' }]}>
-                          {selectedTransaction.description}
-                        </Text>
+                    <View style={styles.detailList}>
+                      <View style={styles.detailItem}>
+                        <Text style={styles.detailLabel}>Statut</Text>
+                        <View style={{ 
+                          paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, 
+                          backgroundColor: STATUS_CONFIG[selectedTransaction.status]?.color + '20' 
+                        }}>
+                          <Text style={{ color: STATUS_CONFIG[selectedTransaction.status]?.color, fontWeight: '700', fontSize: 12 }}>
+                            {STATUS_CONFIG[selectedTransaction.status]?.label}
+                          </Text>
+                        </View>
                       </View>
-                    )}
+
+                      <View style={styles.detailItem}>
+                        <Text style={styles.detailLabel}>Compte Bedou</Text>
+                        <Text style={styles.detailValue}>{selectedTransaction.portfolio_name || 'Principal'}</Text>
+                      </View>
+
+                      <View style={styles.detailItem}>
+                        <Text style={styles.detailLabel}>Date</Text>
+                        <Text style={styles.detailValue}>{new Date(selectedTransaction.created_at).toLocaleString('fr-FR')}</Text>
+                      </View>
+
+                      <View style={styles.detailItem}>
+                        <Text style={styles.detailLabel}>Référence</Text>
+                        <Text style={styles.detailValue}>{selectedTransaction.reference_number}</Text>
+                      </View>
+
+                      {selectedTransaction.description && (
+                        <View style={[styles.detailItem, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+                          <Text style={styles.detailLabel}>Description</Text>
+                          <Text style={[styles.detailValue, { marginTop: 4, color: '#94a3b8' }]}>
+                            {selectedTransaction.description}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.submitBtn, { backgroundColor: '#38bdf8', marginTop: 30 }]}
+                      onPress={() => setSelectedTransaction(null)}
+                    >
+                      <Text style={styles.submitBtnText}>Fermer</Text>
+                    </TouchableOpacity>
                   </View>
-
-                  <TouchableOpacity
-                    style={[styles.submitBtn, { backgroundColor: '#38bdf8', marginTop: 30 }]}
-                    onPress={() => setSelectedTransaction(null)}
-                  >
-                    <Text style={styles.submitBtnText}>Fermer</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                );
+              })()}
             </View>
           </View>
         </Modal>

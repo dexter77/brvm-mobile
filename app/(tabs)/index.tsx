@@ -84,6 +84,14 @@ export default function HomeScreen() {
   const [dividends, setDividends] = useState<any[]>([]);
   const [unclaimedDividends, setUnclaimedDividends] = useState<any[]>([]);
 
+  const [selectedIndex, setSelectedIndex] = useState<any>(null);
+  const [isIndexModalVisible, setIsIndexModalVisible] = useState(false);
+  const [indexHistoryLoading, setIndexHistoryLoading] = useState(false);
+  const [indexVariationYTD, setIndexVariationYTD] = useState<number | null>(null);
+  const [indexVariationGlobal, setIndexVariationGlobal] = useState<number | null>(null);
+  const [oldestHistoricalDate, setOldestHistoricalDate] = useState<string>('');
+  const [startOfYearDate, setStartOfYearDate] = useState<string>('');
+
   // Charger le compteur de notifications non lues
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -97,6 +105,50 @@ export default function HomeScreen() {
     const interval = setInterval(loadUnreadCount, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleOpenIndexDetails = async (idx: any) => {
+    setSelectedIndex(idx);
+    setIsIndexModalVisible(true);
+    setIndexHistoryLoading(true);
+    setIndexVariationYTD(null);
+    setIndexVariationGlobal(null);
+    setOldestHistoricalDate('');
+    setStartOfYearDate('');
+
+    try {
+      const res = await apiClient.get(`/investments/market/${idx.symbol}/history/`);
+      const history = res.data || [];
+      if (history.length > 0) {
+        const latestClose = parseFloat(idx.close);
+
+        // Oldest price
+        const oldest = history[0];
+        const oldestClose = parseFloat(oldest.close);
+        if (oldestClose > 0) {
+          const globalVar = ((latestClose - oldestClose) / oldestClose) * 100;
+          setIndexVariationGlobal(globalVar);
+          setOldestHistoricalDate(new Date(oldest.date).toLocaleDateString('fr-FR'));
+        }
+
+        // YTD price: first record of the current year (e.g. 2026)
+        const currentYear = new Date().getFullYear();
+        const ytdRecords = history.filter((p: any) => new Date(p.date).getFullYear() === currentYear);
+        if (ytdRecords.length > 0) {
+          const firstOfYear = ytdRecords[0];
+          const ytdClose = parseFloat(firstOfYear.close);
+          if (ytdClose > 0) {
+            const ytdVar = ((latestClose - ytdClose) / ytdClose) * 100;
+            setIndexVariationYTD(ytdVar);
+            setStartOfYearDate(new Date(firstOfYear.date).toLocaleDateString('fr-FR'));
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching index history:', e);
+    } finally {
+      setIndexHistoryLoading(false);
+    }
+  };
 
   const maskValue = (val: any) => {
     if (isBalanceVisible) {
@@ -553,7 +605,12 @@ export default function HomeScreen() {
                 const label = idx.symbol === 'BRVMC' ? 'Composite' : idx.symbol === 'BRVM30' ? 'BRVM 30' : 'Prestige';
 
                 return (
-                  <View key={idx.symbol} style={[styles.indexCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <TouchableOpacity
+                    key={idx.symbol}
+                    style={[styles.indexCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => handleOpenIndexDetails(idx)}
+                    activeOpacity={0.7}
+                  >
                     <Text style={[styles.indexLabel, { color: colors.subtext }]}>{label}</Text>
                     <Text style={[styles.indexValue, { color: colors.text }]}>{parseFloat(idx.close).toFixed(2)}</Text>
                     <View style={[styles.indexPerf, { backgroundColor: isPositive ? '#10b98120' : '#ff525220' }]}>
@@ -561,7 +618,10 @@ export default function HomeScreen() {
                         {isPositive ? '+' : ''}{variation.toFixed(2)}%
                       </Text>
                     </View>
-                  </View>
+                    <View style={styles.infoIconBtn}>
+                      <Ionicons name="information-circle-outline" size={14} color={colors.subtext} />
+                    </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -747,6 +807,121 @@ export default function HomeScreen() {
 
       </Animated.View>
     </ScrollView>
+
+      {/* Modal Détails Indice BRVM */}
+      <Modal
+        visible={isIndexModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setIsIndexModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', paddingHorizontal: 20 }}>
+          {selectedIndex && (
+            <View style={styles.indexModalContent}>
+              {/* Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={styles.modalIndexTitle}>
+                  🌍 {selectedIndex.symbol === 'BRVMC' ? 'Composite' : selectedIndex.symbol === 'BRVM30' ? 'BRVM 30' : 'Prestige'}
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => setIsIndexModalVisible(false)}
+                  style={{ backgroundColor: '#334155', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#94a3b8', fontSize: 16, fontWeight: '700' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Price card */}
+              <View style={styles.modalIndexPriceContainer}>
+                <Text style={styles.modalIndexPriceLabel}>Valeur de clôture</Text>
+                <Text style={styles.modalIndexPriceValue}>
+                  {parseFloat(selectedIndex.close).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} pts
+                </Text>
+              </View>
+
+              {/* Daily Variation */}
+              <View style={styles.modalIndexRow}>
+                <View>
+                  <Text style={styles.modalIndexRowLabel}>Variation du Jour</Text>
+                  <Text style={styles.modalIndexRowSub}>
+                    Précédent : {parseFloat(selectedIndex.previous_close || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} pts
+                  </Text>
+                </View>
+                {(() => {
+                  const dailyVar = parseFloat(selectedIndex.variation || 0);
+                  const isPositive = dailyVar >= 0;
+                  return (
+                    <View style={[styles.modalIndexBadge, { backgroundColor: isPositive ? '#10b98120' : '#ff525220' }]}>
+                      <Text style={[styles.modalIndexBadgeText, { color: isPositive ? '#10b981' : '#ff5252' }]}>
+                        {isPositive ? '+' : ''}{dailyVar.toFixed(2)}%
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </View>
+
+              {/* YTD Variation */}
+              <View style={styles.modalIndexRow}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.modalIndexRowLabel}>Variation depuis le début de l'année</Text>
+                  {startOfYearDate ? (
+                    <Text style={styles.modalIndexRowSub}>Depuis le {startOfYearDate}</Text>
+                  ) : null}
+                </View>
+                {indexHistoryLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : indexVariationYTD !== null ? (
+                  <View style={[styles.modalIndexBadge, { backgroundColor: indexVariationYTD >= 0 ? '#10b98120' : '#ff525220' }]}>
+                    <Text style={[styles.modalIndexBadgeText, { color: indexVariationYTD >= 0 ? '#10b981' : '#ff5252' }]}>
+                      {indexVariationYTD >= 0 ? '+' : ''}{indexVariationYTD.toFixed(2)}%
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={{ color: '#64748b', fontSize: 13 }}>Non dispo.</Text>
+                )}
+              </View>
+
+              {/* Global/Historical Variation */}
+              <View style={styles.modalIndexRow}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.modalIndexRowLabel}>Variation historique globale</Text>
+                  {oldestHistoricalDate ? (
+                    <Text style={styles.modalIndexRowSub}>Depuis le {oldestHistoricalDate}</Text>
+                  ) : null}
+                </View>
+                {indexHistoryLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : indexVariationGlobal !== null ? (
+                  <View style={[styles.modalIndexBadge, { backgroundColor: indexVariationGlobal >= 0 ? '#10b98120' : '#ff525220' }]}>
+                    <Text style={[styles.modalIndexBadgeText, { color: indexVariationGlobal >= 0 ? '#10b981' : '#ff5252' }]}>
+                      {indexVariationGlobal >= 0 ? '+' : ''}{indexVariationGlobal.toFixed(2)}%
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={{ color: '#64748b', fontSize: 13 }}>Non dispo.</Text>
+                )}
+              </View>
+
+              {/* Explanation */}
+              <Text style={styles.modalIndexExplanation}>
+                {selectedIndex.symbol === 'BRVMC'
+                  ? 'L’indice BRVM Composite intègre toutes les sociétés cotées à la BRVM. Il reflète la tendance générale du marché boursier régional.'
+                  : selectedIndex.symbol === 'BRVM30'
+                  ? 'L’indice BRVM 30 regroupe les 30 actions les plus actives et liquides de la BRVM, offrant un aperçu des valeurs phares du marché.'
+                  : 'L’indice BRVM Prestige regroupe les sociétés admises au compartiment Prestige de la bourse, répondant à des critères stricts de gouvernance et de liquidité.'}
+              </Text>
+
+              {/* Close Button */}
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: colors.primary, marginTop: 24 }]}
+                onPress={() => setIsIndexModalVisible(false)}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 15 }}>Fermer</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Modal>
 
       <Modal
         visible={createWatchlistModal}
@@ -1383,6 +1558,85 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
+    position: 'relative',
+  },
+  infoIconBtn: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    padding: 4,
+    zIndex: 10,
+  },
+  indexModalContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modalIndexTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  modalIndexPriceContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+    backgroundColor: '#0f172a',
+    padding: 20,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  modalIndexPriceLabel: {
+    fontSize: 12,
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  modalIndexPriceValue: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  modalIndexRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  modalIndexRowLabel: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    fontWeight: '600',
+  },
+  modalIndexRowSub: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  modalIndexBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
+  },
+  modalIndexBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  modalIndexExplanation: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 18,
+    marginTop: 20,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   indexLabel: {
     fontSize: 10,
