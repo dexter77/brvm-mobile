@@ -11,9 +11,10 @@ import * as Notifications from 'expo-notifications';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ThemeProvider as AppThemeProvider, useTheme } from '../src/context/ThemeContext';
-import apiClient from '../src/api/client';
+import apiClient, { setOnUnauthorized } from '../src/api/client';
 
 SplashScreen.preventAutoHideAsync();
+
 
 // Configuration de l'affichage des notifications quand l'app est au premier plan
 Notifications.setNotificationHandler({
@@ -82,6 +83,16 @@ export default function RootLayout() {
     };
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      setIsAuthenticated(false);
+    });
+    return () => {
+      setOnUnauthorized(null);
+    };
+  }, []);
+
 
   // Enregistrer le token push quand l'utilisateur se connecte
   useEffect(() => {

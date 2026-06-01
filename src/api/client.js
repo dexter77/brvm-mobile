@@ -2,7 +2,14 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://brvm-backend-production.up.railway.app/api/v1';
+// Clean trailing slashes dynamically to avoid double-slash 404 errors on endpoints
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://brvm-backend-production.up.railway.app/api/v1').replace(/\/+$/, '');
+
+let onUnauthorizedCallback = null;
+
+export const setOnUnauthorized = (callback) => {
+  onUnauthorizedCallback = callback;
+};
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -36,7 +43,11 @@ apiClient.interceptors.response.use(
       } catch (e) {
         await SecureStore.deleteItemAsync('access_token');
         await SecureStore.deleteItemAsync('refresh_token');
-        try { router.replace('/auth/login'); } catch (err) {}
+        if (onUnauthorizedCallback) {
+          onUnauthorizedCallback();
+        } else {
+          try { router.replace('/auth/login'); } catch (err) {}
+        }
         return Promise.reject(e);
       }
     }
@@ -45,3 +56,4 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+
