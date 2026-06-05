@@ -101,8 +101,8 @@ export default function InvestmentsScreen() {
     if (marketData && marketData.length > 0 && (marketData[0] as any).created_at) {
       try {
         const dateObj = new Date((marketData[0] as any).created_at);
-        const hours = dateObj.getHours().toString().padStart(2, "0");
-        const minutes = dateObj.getMinutes().toString().padStart(2, "0");
+        const hours = dateObj.getUTCHours().toString().padStart(2, "0");
+        const minutes = dateObj.getUTCMinutes().toString().padStart(2, "0");
         return `${hours}h${minutes}`;
       } catch (e) {
         return "";
