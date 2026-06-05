@@ -75,6 +75,41 @@ export default function InvestmentsScreen() {
   const [search, setSearch] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [marketOpen, setMarketOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkMarketStatus = () => {
+      const now = new Date();
+      // Le marché de la BRVM (Abidjan) est à l'heure GMT (UTC+0)
+      const day = now.getUTCDay(); // 0 = Dimanche, 1 = Lundi, ..., 6 = Samedi
+      if (day >= 1 && day <= 5) {
+        const timeInMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+        const start = 9 * 60 + 45; // 09:45
+        const end = 15 * 60;       // 15:00
+        setMarketOpen(timeInMinutes >= start && timeInMinutes < end);
+      } else {
+        setMarketOpen(false);
+      }
+    };
+
+    checkMarketStatus();
+    const interval = setInterval(checkMarketStatus, 10000); // Vérifier toutes les 10 secondes
+    return () => clearInterval(interval);
+  }, []);
+
+  const lastUpdateTime = useMemo(() => {
+    if (marketData && marketData.length > 0 && (marketData[0] as any).created_at) {
+      try {
+        const dateObj = new Date((marketData[0] as any).created_at);
+        const hours = dateObj.getHours().toString().padStart(2, "0");
+        const minutes = dateObj.getMinutes().toString().padStart(2, "0");
+        return `${hours}h${minutes}`;
+      } catch (e) {
+        return "";
+      }
+    }
+    return "";
+  }, [marketData]);
 
   const loadMarket = async () => {
     try {
@@ -154,7 +189,17 @@ export default function InvestmentsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.background, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-        <Text style={[styles.title, { color: colors.text }]}>📈 Marché BRVM</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: marketOpen ? "#22c55e" : "#ff5252" }} />
+          <Text style={[styles.title, { color: marketOpen ? "#22c55e" : "#ff5252" }]}>
+            {marketOpen ? "Marché ouvert" : "Marché fermé"}
+            {lastUpdateTime ? (
+              <Text style={{ fontSize: 12, fontWeight: "normal", opacity: 0.8 }}>
+                {` (dernière MAJ à ${lastUpdateTime})`}
+              </Text>
+            ) : null}
+          </Text>
+        </View>
         <TouchableOpacity 
             style={styles.supportBtn} 
             onPress={() => {

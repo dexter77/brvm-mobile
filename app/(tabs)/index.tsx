@@ -225,6 +225,10 @@ export default function HomeScreen() {
         ]);
 
       setUser(userRes.data);
+      if (!userRes.data.investor_profile) {
+        router.replace('/academy/questionnaire' as any);
+        return;
+      }
       setWallet(walletRes.data);
       setPortfolio(portfolioRes.data?.portfolio ?? null);
       setConsolidatedData(consolidatedRes.data);

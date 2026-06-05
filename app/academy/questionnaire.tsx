@@ -72,6 +72,13 @@ export default function QuestionnaireScreen() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  React.useEffect(() => {
+    apiClient.get('users/me/')
+      .then(res => setUser(res.data))
+      .catch(err => console.error("Error fetching user in questionnaire", err));
+  }, []);
 
   const handleSelect = async (value: string) => {
     const newAnswers = [...answers, value];
@@ -90,10 +97,7 @@ export default function QuestionnaireScreen() {
         // Sauvegarder dans le backend
         await apiClient.patch('users/me/', { investor_profile: profile });
         
-        router.replace({
-          pathname: '/academy',
-          params: { profile }
-        } as any);
+        router.replace('/');
       } catch (e) {
         console.error("Save profile error", e);
       } finally {
@@ -108,9 +112,13 @@ export default function QuestionnaireScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="close" size={28} color={colors.text} />
-        </TouchableOpacity>
+        {user?.investor_profile ? (
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="close" size={28} color={colors.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ height: 28, marginBottom: 20 }} />
+        )}
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, { width: `${progress}%`, backgroundColor: colors.primary }]} />
         </View>
