@@ -97,15 +97,35 @@ export default function InvestmentsScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  const lastUpdateTime = useMemo(() => {
-    if (marketData && marketData.length > 0 && (marketData[0] as any).created_at) {
-      try {
-        const dateObj = new Date((marketData[0] as any).created_at);
-        const hours = dateObj.getUTCHours().toString().padStart(2, "0");
-        const minutes = dateObj.getUTCMinutes().toString().padStart(2, "0");
-        return `${hours}h${minutes}`;
-      } catch (e) {
-        return "";
+  const lastUpdateText = useMemo(() => {
+    if (marketData && marketData.length > 0) {
+      const firstItem = marketData[0];
+      let datePart = "";
+      if (firstItem.date) {
+        try {
+          const parts = firstItem.date.split("-");
+          if (parts.length === 3) {
+            datePart = `${parts[2]}/${parts[1]}`;
+          } else {
+            datePart = firstItem.date;
+          }
+        } catch (e) {
+          datePart = firstItem.date;
+        }
+      }
+
+      let timePart = "";
+      if ((firstItem as any).created_at) {
+        try {
+          const dateObj = new Date((firstItem as any).created_at);
+          const hours = dateObj.getHours().toString().padStart(2, "0");
+          const minutes = dateObj.getMinutes().toString().padStart(2, "0");
+          timePart = ` à ${hours}h${minutes}`;
+        } catch (e) {}
+      }
+
+      if (datePart || timePart) {
+        return ` (Cours du ${datePart}${timePart})`;
       }
     }
     return "";
@@ -193,9 +213,9 @@ export default function InvestmentsScreen() {
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: marketOpen ? "#22c55e" : "#ff5252" }} />
           <Text style={[styles.title, { color: marketOpen ? "#22c55e" : "#ff5252" }]}>
             {marketOpen ? "Marché ouvert" : "Marché fermé"}
-            {lastUpdateTime ? (
+            {lastUpdateText ? (
               <Text style={{ fontSize: 12, fontWeight: "normal", opacity: 0.8 }}>
-                {` (dernière MAJ à ${lastUpdateTime})`}
+                {lastUpdateText}
               </Text>
             ) : null}
           </Text>

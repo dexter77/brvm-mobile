@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Alert, ActivityIndicator, TextInput, Modal
+  RefreshControl, Alert, ActivityIndicator, TextInput, Modal, Switch
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
@@ -25,6 +25,17 @@ export default function ProfileScreen() {
   // KYC
   const [kycModal, setKycModal] = useState(false);
   const [kycUploading, setKycUploading] = useState(false);
+
+  // Coach Performance
+  const [performanceModal, setPerformanceModal] = useState(false);
+  const [updatingShare, setUpdatingShare] = useState(false);
+
+  // Change Password
+  const [changePasswordModal, setChangePasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
   // Edit form
   const [firstName, setFirstName] = useState('');
@@ -81,6 +92,54 @@ export default function ProfileScreen() {
       Alert.alert('Erreur', 'Impossible de mettre à jour le profil');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleToggleSharePortfolio = async (value: boolean) => {
+    setUpdatingShare(true);
+    try {
+      const res = await apiClient.post('/coaches/toggle-share-portfolio/', {
+        share_portfolio: value
+      });
+      setCoachProfile(res.data);
+    } catch (e) {
+      Alert.alert('Erreur', 'Impossible de modifier le paramètre de partage');
+    } finally {
+      setUpdatingShare(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword || !newPasswordConfirm) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      Alert.alert('Erreur', 'Le nouveau mot de passe et sa confirmation ne correspondent pas');
+      return;
+    }
+    if (newPassword.length < 8) {
+      Alert.alert('Erreur', 'Le nouveau mot de passe doit faire au moins 8 caractères');
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      await apiClient.post('/users/change-password/', {
+        old_password: oldPassword,
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm
+      });
+      Alert.alert('✅ Succès', 'Mot de passe modifié avec succès !');
+      setChangePasswordModal(false);
+      setOldPassword('');
+      setNewPassword('');
+      setNewPasswordConfirm('');
+    } catch (e: any) {
+      const serverError = e.response?.data?.error || 'Échec de la modification du mot de passe';
+      Alert.alert('Erreur', serverError);
+    } finally {
+      setUpdatingPassword(false);
     }
   };
 
@@ -317,7 +376,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.menuRow}
-                onPress={() => handleFeatureNotAvailable('Analyse Performance')}
+                onPress={() => setPerformanceModal(true)}
               >
                 <Text style={styles.menuIcon}>📈</Text>
                 <Text style={styles.menuLabel}>Ma Performance</Text>
@@ -332,14 +391,14 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>🔒 Sécurité</Text>
           <View style={styles.menuCard}>
             {[
-              { icon: '🔑', label: 'Changer le mot de passe', arrow: true },
+              { icon: '🔑', label: 'Changer le mot de passe', arrow: true, onPress: () => setChangePasswordModal(true) },
               { icon: '📱', label: 'Authentification 2FA', arrow: true, badge: 'Bientôt' },
               { icon: '📋', label: 'Historique des connexions', arrow: true },
             ].map((item) => (
               <TouchableOpacity
                 key={item.label}
                 style={styles.menuRow}
-                onPress={() => handleFeatureNotAvailable(item.label)}
+                onPress={item.onPress || (() => handleFeatureNotAvailable(item.label))}
               >
                 <Text style={styles.menuIcon}>{item.icon}</Text>
                 <Text style={styles.menuLabel}>{item.label}</Text>
@@ -517,6 +576,133 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal Performance Coach */}
+      <Modal visible={performanceModal} animationType="slide" transparent onRequestClose={() => setPerformanceModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📈 Ma Performance de Coach</Text>
+              <TouchableOpacity onPress={() => setPerformanceModal(false)}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Profil rapide */}
+              <View style={styles.coachPerfHeader}>
+                <Text style={styles.coachNameText}>{coachProfile?.name || user?.first_name}</Text>
+                <Text style={styles.coachTitleText}>{coachProfile?.title || 'Coach BRVM'}</Text>
+              </View>
+
+              {/* Grid Statistiques */}
+              <View style={styles.statsGrid}>
+                <View style={styles.statBox}>
+                  <Text style={styles.statEmoji}>👥</Text>
+                  <Text style={styles.statVal}>{coachProfile?.followers_count ?? 0}</Text>
+                  <Text style={styles.statLbl}>Abonnés</Text>
+                </View>
+
+                <View style={styles.statBox}>
+                  <Text style={styles.statEmoji}>🔥</Text>
+                  <Text style={[styles.statVal, { color: '#10b981' }]}>{coachProfile?.performance_year || '+0.0%'}</Text>
+                  <Text style={styles.statLbl}>Perf. Annuelle</Text>
+                </View>
+
+                <View style={styles.statBox}>
+                  <Text style={styles.statEmoji}>💡</Text>
+                  <Text style={styles.statVal}>{coachProfile?.tips?.length ?? 0}</Text>
+                  <Text style={styles.statLbl}>Conseils</Text>
+                </View>
+
+                <View style={styles.statBox}>
+                  <Text style={styles.statEmoji}>💼</Text>
+                  <Text style={styles.statVal}>{coachProfile?.holdings?.length ?? 0}</Text>
+                  <Text style={styles.statLbl}>Positions</Text>
+                </View>
+              </View>
+
+              {/* Toggle de partage des positions */}
+              <View style={styles.toggleSection}>
+                <View style={styles.toggleInfo}>
+                  <Text style={styles.toggleTitle}>Partager mes positions</Text>
+                  <Text style={styles.toggleDesc}>
+                    Permettre aux abonnés du Club de voir la composition de mon portefeuille recommandé
+                  </Text>
+                </View>
+                <Switch
+                  value={coachProfile?.share_portfolio ?? true}
+                  onValueChange={handleToggleSharePortfolio}
+                  disabled={updatingShare}
+                  trackColor={{ false: '#334155', true: '#8b5cf6' }}
+                  thumbColor={coachProfile?.share_portfolio ? '#a78bfa' : '#94a3b8'}
+                />
+              </View>
+
+              <TouchableOpacity style={styles.closeModalBtn} onPress={() => setPerformanceModal(false)}>
+                <Text style={styles.closeModalBtnText}>Fermer</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Changer le mot de passe */}
+      <Modal visible={changePasswordModal} animationType="slide" transparent onRequestClose={() => setChangePasswordModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🔑 Changer le mot de passe</Text>
+              <TouchableOpacity onPress={() => setChangePasswordModal(false)}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalLabel}>Ancien mot de passe</Text>
+              <TextInput 
+                style={styles.modalInput} 
+                value={oldPassword}
+                onChangeText={setOldPassword} 
+                secureTextEntry
+                placeholder="Entrez votre ancien mot de passe"
+                placeholderTextColor="#64748b" 
+              />
+
+              <Text style={styles.modalLabel}>Nouveau mot de passe</Text>
+              <TextInput 
+                style={styles.modalInput} 
+                value={newPassword}
+                onChangeText={setNewPassword} 
+                secureTextEntry
+                placeholder="Minimum 8 caractères"
+                placeholderTextColor="#64748b" 
+              />
+
+              <Text style={styles.modalLabel}>Confirmer le nouveau mot de passe</Text>
+              <TextInput 
+                style={styles.modalInput} 
+                value={newPasswordConfirm}
+                onChangeText={setNewPasswordConfirm} 
+                secureTextEntry
+                placeholder="Répétez le nouveau mot de passe"
+                placeholderTextColor="#64748b" 
+              />
+
+              <TouchableOpacity
+                style={[styles.saveBtn, updatingPassword && { opacity: 0.6 }]}
+                onPress={handleChangePassword}
+                disabled={updatingPassword}
+              >
+                {updatingPassword
+                  ? <ActivityIndicator color="#0f172a" />
+                  : <Text style={styles.saveBtnText}>✅ Enregistrer le mot de passe</Text>
+                }
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -611,4 +797,20 @@ const styles = StyleSheet.create({
   kycDocDoneBtn: { backgroundColor: '#10b98120', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#10b981' },
   kycDocBtnText: { color: '#38bdf8', fontSize: 12, fontWeight: '700' },
   kycDocBtnTextDone: { color: '#10b981', fontSize: 12, fontWeight: '700' },
+
+  // Coach performance styles
+  coachPerfHeader: { alignItems: 'center', marginBottom: 20 },
+  coachNameText: { color: '#f1f5f9', fontSize: 18, fontWeight: '700' },
+  coachTitleText: { color: '#8b5cf6', fontSize: 13, marginTop: 4, fontWeight: '500' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', marginBottom: 24 },
+  statBox: { backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155', width: '47%', borderRadius: 12, padding: 16, alignItems: 'center' },
+  statEmoji: { fontSize: 24, marginBottom: 8 },
+  statVal: { color: '#f1f5f9', fontSize: 18, fontWeight: '800' },
+  statLbl: { color: '#64748b', fontSize: 11, marginTop: 4 },
+  toggleSection: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155', borderRadius: 12, padding: 16, marginBottom: 24 },
+  toggleInfo: { flex: 1 },
+  toggleTitle: { color: '#f1f5f9', fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  toggleDesc: { color: '#64748b', fontSize: 11, lineHeight: 16 },
+  closeModalBtn: { backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 16 },
+  closeModalBtnText: { color: '#94a3b8', fontSize: 15, fontWeight: '700' },
 });
