@@ -617,7 +617,7 @@ export default function WalletScreen() {
                 [
                   {
                     text: '📧 Par Email',
-                    onPress: () => Linking.openURL('mailto:support@bedoumagique.com'),
+                    onPress: () => Linking.openURL('mailto:support@bedou.net'),
                   },
                   {
                     text: '💬 Par WhatsApp',

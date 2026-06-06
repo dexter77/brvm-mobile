@@ -44,7 +44,22 @@ export default function LoginScreen() {
       if (!access || !refresh) throw new Error('Tokens manquants');
       await loginAuth(access, refresh);
     } catch (e: any) {
-      Alert.alert('Erreur', 'Identifiants invalides');
+      let errorMsg = 'Identifiants invalides';
+      if (e.response?.data) {
+        const data = e.response.data;
+        if (typeof data === 'string') {
+          errorMsg = data;
+        } else if (data.detail) {
+          errorMsg = Array.isArray(data.detail) ? data.detail.join(' ') : String(data.detail);
+        } else if (typeof data === 'object') {
+          const values = Object.values(data);
+          if (values.length > 0) {
+            const firstVal = values[0];
+            errorMsg = Array.isArray(firstVal) ? firstVal.join(' ') : String(firstVal);
+          }
+        }
+      }
+      Alert.alert('Erreur', errorMsg);
     } finally {
       setSubmitting(false);
     }

@@ -103,7 +103,7 @@ export default function RegisterScreen() {
         password,
         password_confirm: confirmPassword,
       });
-      Alert.alert('🎉 Compte créé !', 'Connectez-vous maintenant.',
+      Alert.alert('🎉 Compte créé !', 'Veuillez activer votre compte en cliquant sur le lien reçu par e-mail avant de vous connecter.',
         [{ text: 'Se connecter', onPress: () => router.replace('/auth/login') }]
       );
     } catch (e: any) {
