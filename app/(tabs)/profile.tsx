@@ -291,6 +291,29 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Performance */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📈 Performance</Text>
+          <View style={styles.menuCard}>
+            <TouchableOpacity 
+              style={[styles.menuRow, { borderBottomWidth: 1, borderBottomColor: '#334155' }]}
+              onPress={() => router.push('/performance?tab=monthly' as any)}
+            >
+              <Text style={styles.menuIcon}>📅</Text>
+              <Text style={styles.menuLabel}>Mensuel</Text>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.menuRow}
+              onPress={() => router.push('/performance?tab=yearly' as any)}
+            >
+              <Text style={styles.menuIcon}>📊</Text>
+              <Text style={styles.menuLabel}>Annuel</Text>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* KYC Section */}
         {!user?.is_verified && (
           <View style={styles.section}>

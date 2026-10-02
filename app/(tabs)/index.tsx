@@ -681,24 +681,25 @@ export default function HomeScreen() {
         <View style={styles.shortcutsGrid}>
           {[
             { icon: '📊', label: 'Actions', onPress: () => router.push('/investments' as any) },
-            { icon: '📖', label: "Carnet d'ordre", onPress: () => router.push('/orderbook' as any) },
-            { icon: '🤝', label: 'Le Club', onPress: () => router.push('/club' as any) },
+            { icon: '📖', label: "Carnet d'ordre", onPress: () => router.push('/orderbook' as any), disabled: true },
+            { icon: '🤝', label: 'Le Club', onPress: () => router.push('/club' as any), disabled: true },
             { icon: '🎓', label: 'Academy', onPress: () => {
               if (user?.investor_profile) {
                 router.push({ pathname: '/academy', params: { profile: user.investor_profile } } as any);
               } else {
                 router.push('/academy/questionnaire' as any);
               }
-            }},
+            }, disabled: true },
             { icon: '💰', label: 'Dividendes', onPress: () => router.push('/dividends' as any) },
             { icon: '📈', label: 'Classement', onPress: () => router.push('/leaderboard' as any) },
-            { icon: '📰', label: 'Nouvelles', onPress: () => router.push('/news' as any) },
+            { icon: '📰', label: 'Nouvelles', onPress: () => router.push('/news' as any), disabled: true },
           ].map((item) => (
             <TouchableOpacity
               key={item.label}
-              style={styles.shortcutBtn}
-              onPress={item.onPress}
+              style={[styles.shortcutBtn, item.disabled && { opacity: 0.4 }]}
+              onPress={item.disabled ? undefined : item.onPress}
               activeOpacity={0.8}
+              disabled={item.disabled}
             >
               <View style={styles.shortcutIconBg}>
                 <Text style={styles.shortcutIcon}>{item.icon}</Text>

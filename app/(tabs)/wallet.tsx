@@ -51,6 +51,7 @@ const TYPE_CONFIG: any = {
   TRANSFER: { icon: "↔️", label: "Transfert", color: "#38bdf8" },
   INVESTMENT: { icon: "📈", label: "Investissement", color: "#a78bfa" },
   DIVIDEND: { icon: "💰", label: "Dividende", color: "#f59e0b" },
+  FEE: { icon: "💸", label: "Frais", color: "#ef4444" },
 };
 
 const STATUS_CONFIG: any = {
@@ -97,6 +98,9 @@ export default function WalletScreen() {
   const [addDividendModal, setAddDividendModal] = useState(false);
   const [dividendAmount, setDividendAmount] = useState("");
   const [selectedSymbol, setSelectedSymbol] = useState("");
+  const [addFeeModal, setAddFeeModal] = useState(false);
+  const [feeAmount, setFeeAmount] = useState("");
+  const [feeDescription, setFeeDescription] = useState("Frais de tenue de compte");
 
   // Forms
   const [amount, setAmount] = useState("");
@@ -420,6 +424,33 @@ export default function WalletScreen() {
     } catch (e) {
       console.error(e);
       Alert.alert("Erreur", "Impossible d'enregistrer le dividende");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAddFee = async () => {
+    if (!feeAmount || isNaN(parseFloat(feeAmount))) {
+      Alert.alert("Montant invalide", "Veuillez saisir un montant correct pour les frais.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await apiClient.post("/transactions/", {
+        transaction_type: "FEE",
+        amount: parseFloat(feeAmount),
+        description: feeDescription || "Frais SGI",
+        portfolio: selectedPortfolioId,
+      });
+      setAddFeeModal(false);
+      setFeeAmount("");
+      setFeeDescription("Frais de tenue de compte");
+      Alert.alert("💸 Frais déduits", "Les frais ont été prélevés sur votre compte BEDOU.");
+      loadData();
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Erreur", "Impossible d'enregistrer les frais");
     } finally {
       setSubmitting(false);
     }
@@ -921,6 +952,16 @@ export default function WalletScreen() {
                 <Text style={styles.actionLabel}>Dividende</Text>
               </TouchableOpacity>
 
+              <View style={styles.actionDivider} />
+
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => setAddFeeModal(true)}
+              >
+                <Text style={styles.actionIcon}>💸</Text>
+                <Text style={styles.actionLabel}>Frais</Text>
+              </TouchableOpacity>
+
 
             </View>
           </View>
@@ -1026,19 +1067,19 @@ export default function WalletScreen() {
                     if (beatsMarket) {
                       icon = "🚀";
                       statusLabel = "Surperformance du marché";
-                      statusDesc = `Votre portefeuille surperforme le BRVM Composite de +${diffYear.toFixed(2)}% cette année. Vos choix d'investissement sont très efficaces.`;
+                      statusDesc = `Votre bedou surperforme le BRVM Composite de +${diffYear.toFixed(2)}% cette année. Vos choix d'investissement sont très efficaces.`;
                       alertBg = isDark ? 'rgba(34, 197, 94, 0.1)' : '#f0fdf4';
                       alertBorder = isDark ? 'rgba(34, 197, 94, 0.3)' : '#bcf0da';
                     } else if (diffYear > -3) {
                       icon = "⚖️";
                       statusLabel = "Performance en ligne";
-                      statusDesc = `Votre portefeuille suit de près le marché avec un écart de seulement ${diffYear.toFixed(2)}% cette année. Votre diversification est saine.`;
+                      statusDesc = `Votre bedou suit de près le marché avec un écart de seulement ${diffYear.toFixed(2)}% cette année. Votre diversification est saine.`;
                       alertBg = isDark ? 'rgba(56, 189, 248, 0.1)' : '#f0f9ff';
                       alertBorder = isDark ? 'rgba(56, 189, 248, 0.3)' : '#b3e0ff';
                     } else {
                       icon = "⚠️";
                       statusLabel = "Sous-performance du marché";
-                      statusDesc = `Votre portefeuille sous-performe le marché de ${Math.abs(diffYear).toFixed(2)}% cette année. Pensez à rééquilibrer vos lignes ou à diversifier sur des valeurs à plus fort bêta.`;
+                      statusDesc = `Votre bedou sous-performe le marché de ${Math.abs(diffYear).toFixed(2)}% cette année. Pensez à rééquilibrer vos lignes ou à diversifier sur des valeurs à plus fort bêta.`;
                       alertBg = isDark ? 'rgba(234, 179, 8, 0.1)' : '#fefcbf';
                       alertBorder = isDark ? 'rgba(234, 179, 8, 0.3)' : '#fef08a';
                     }
@@ -1059,12 +1100,12 @@ export default function WalletScreen() {
                   <>
                     <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4, opacity: 0.5 }} />
                     
-                    {/* 1. Bêta du Portefeuille */}
+                    {/* 1. Bêta du Bedou */}
                     <View style={{ marginVertical: 12 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                           <Text style={{ fontSize: 16, marginRight: 6 }}>⚖️</Text>
-                          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>Bêta du Portefeuille</Text>
+                          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>Bêta du Bedou</Text>
                         </View>
                         {(() => {
                           const beta = portfolio.performance_diagnostics.portfolio_beta ?? 1.0;
@@ -1150,7 +1191,7 @@ export default function WalletScreen() {
                         {!portfolio.performance_diagnostics.has_sufficient_history ? (
                           `Nécessite au moins 3 mois d'historique de performance. (Actuel : ${portfolio.performance_diagnostics.current_snapshots_count}/3)`
                         ) : (
-                          "Mesure l'efficience de votre portefeuille. Indique si la performance générée justifie la volatilité supportée."
+                          "Mesure l'efficience de votre bedou. Indique si la performance générée justifie la volatilité supportée."
                         )}
                       </Text>
                     </View>
@@ -1208,7 +1249,7 @@ export default function WalletScreen() {
                         {!portfolio.performance_diagnostics.has_sufficient_history ? (
                           `Nécessite au moins 3 mois d'historique de performance. (Actuel : ${portfolio.performance_diagnostics.current_snapshots_count}/3)`
                         ) : (
-                          "Évalue le rendement excédentaire par unité de risque systématique (Bêta). Idéal pour les portefeuilles diversifiés."
+                          "Évalue le rendement excédentaire par unité de risque systématique (Bêta). Idéal pour les bedous diversifiés."
                         )}
                       </Text>
                     </View>
@@ -2094,6 +2135,82 @@ export default function WalletScreen() {
               )}
             </View>
           </View>
+        </Modal>
+
+      {/* Modal Frais */}
+        <Modal
+          visible={addFeeModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => {
+            setAddFeeModal(false);
+            setFeeAmount("");
+          }}
+        >
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { maxHeight: "85%" }]}>
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 20 }}
+                >
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>💸 Saisir des frais</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setAddFeeModal(false);
+                        setFeeAmount("");
+                      }}
+                    >
+                      <Text style={styles.closeBtn}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.label}>Motif des frais</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={feeDescription}
+                    onChangeText={setFeeDescription}
+                    placeholder="ex: Frais de tenue de compte"
+                    placeholderTextColor="#64748b"
+                    returnKeyType="next"
+                  />
+
+                  <Text style={styles.label}>Montant des Frais (FCFA)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={feeAmount}
+                    onChangeText={setFeeAmount}
+                    placeholder="ex: 1500"
+                    placeholderTextColor="#64748b"
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    onSubmitEditing={handleAddFee}
+                  />
+
+                  <TouchableOpacity
+                    style={[
+                      styles.submitBtn,
+                      { backgroundColor: "#ef4444" },
+                      (!feeAmount || submitting) && styles.submitBtnDisabled
+                    ]}
+                    onPress={handleAddFee}
+                    disabled={!feeAmount || submitting}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#0f172a" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>Déduire de mes liquidités</Text>
+                    )}
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
       </View>
   );

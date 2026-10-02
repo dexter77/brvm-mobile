@@ -232,6 +232,7 @@ export default function CompanyScreen() {
   const [sellModalVisible, setSellModalVisible] = useState(false);
   const [sellQuantity, setSellQuantity] = useState("");
   const [sellPrice, setSellPrice] = useState("");
+  const [sellFees, setSellFees] = useState("");
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   const [myTransactions, setMyTransactions] = useState<any[]>([]);
@@ -525,6 +526,7 @@ export default function CompanyScreen() {
   const handleSell = async () => {
     const qty = parseFloat(sellQuantity);
     const sp  = parseFloat(sellPrice);
+    const sf  = sellFees ? parseFloat(sellFees) : 0;
 
     if (!qty || qty <= 0) {
       Alert.alert("Quantité invalide", "Quantité invalide.");
@@ -538,18 +540,24 @@ export default function CompanyScreen() {
       Alert.alert("Titres insuffisants", `Vous ne possédez que ${ownedQuantity} titre(s) de cette action.`);
       return;
     }
+    if (sf < 0) {
+      Alert.alert("Frais invalides", "Les frais de vente ne peuvent pas être négatifs.");
+      return;
+    }
 
     setSubmitting(true);
     try {
       const res = await apiClient.post(`/investments/${ownedInvestment.id}/sell/`, {
         quantity: qty,
         sell_price: sp,
+        fees: sf,
       });
       const credit = parseFloat(res.data.credit).toLocaleString("fr-FR");
       Alert.alert("✅ Vente confirmée", `${credit} FCFA crédités sur votre liquidité.`);
       setSellModalVisible(false);
       setSellQuantity("");
       setSellPrice("");
+      setSellFees("");
       await loadCompany();
     } catch (e: any) {
       Alert.alert("Erreur", e?.response?.data?.error || "Impossible d'effectuer la vente.");
@@ -891,7 +899,8 @@ export default function CompanyScreen() {
                 activeOpacity={0.8}
                 onPress={() => {
                   setSellPrice(price > 0 ? String(price) : "");
-                  setSellQuantity(String(ownedQuantity));
+                  setSellQuantity("");
+                  setSellFees("");
                   setSellModalVisible(true);
                 }}
               >
@@ -1702,6 +1711,19 @@ export default function CompanyScreen() {
                   placeholder="Cours actuel"
                   placeholderTextColor="#9ca3af"
                   keyboardType="decimal-pad"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Frais de vente (FCFA)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={sellFees}
+                  onChangeText={setSellFees}
+                  placeholder="Ex: 100"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="decimal-pad"
                   returnKeyType="done"
                   onSubmitEditing={handleSell}
                 />
@@ -1709,17 +1731,45 @@ export default function CompanyScreen() {
 
               {sellQuantity && sellPrice && (
                 <View style={{ backgroundColor: '#0f172a', borderRadius: 10, padding: 14, marginBottom: 20 }}>
-                  <Text style={{ color: '#94a3b8', fontSize: 12 }}>Montant estimé à recevoir</Text>
-                  <Text style={{ color: '#10b981', fontSize: 20, fontWeight: '700', marginTop: 4 }}>
-                    {(parseFloat(sellQuantity || '0') * parseFloat(sellPrice || '0')).toLocaleString('fr-FR')} FCFA
-                  </Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: '#94a3b8', fontSize: 12 }}>Total Brut</Text>
+                    <Text style={{ color: '#f1f5f9', fontSize: 12, fontWeight: '600' }}>
+                      {(parseFloat(sellQuantity || '0') * parseFloat(sellPrice || '0')).toLocaleString('fr-FR')} FCFA
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: '#94a3b8', fontSize: 12 }}>Frais</Text>
+                    <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                      {-parseFloat(sellFees || '0').toLocaleString('fr-FR')} FCFA
+                    </Text>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: '#334155', marginVertical: 6 }} />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                    <Text style={{ color: '#94a3b8', fontSize: 13, fontWeight: '700' }}>Net à recevoir</Text>
+                    <Text style={{ color: '#10b981', fontSize: 20, fontWeight: '800' }}>
+                      {Math.max(0, (parseFloat(sellQuantity || '0') * parseFloat(sellPrice || '0')) - parseFloat(sellFees || '0')).toLocaleString('fr-FR')} FCFA
+                    </Text>
+                  </View>
                 </View>
               )}
 
+              {sellQuantity && parseFloat(sellQuantity || '0') > ownedQuantity ? (
+                <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '700', marginVertical: 10, textAlign: 'center' }}>
+                  ⚠️ Titres insuffisants (maximum : {ownedQuantity})
+                </Text>
+              ) : null}
+
               <TouchableOpacity
-                style={[styles.submitBtn, { backgroundColor: '#ef4444', marginTop: 10, opacity: submitting ? 0.6 : 1 }]}
+                style={[
+                  styles.submitBtn, 
+                  { 
+                    backgroundColor: '#ef4444', 
+                    marginTop: 10, 
+                    opacity: (submitting || !sellQuantity || parseFloat(sellQuantity || '0') <= 0 || parseFloat(sellQuantity || '0') > ownedQuantity) ? 0.6 : 1 
+                  }
+                ]}
                 onPress={handleSell}
-                disabled={submitting}
+                disabled={submitting || !sellQuantity || parseFloat(sellQuantity || '0') <= 0 || parseFloat(sellQuantity || '0') > ownedQuantity}
               >
                 {submitting ? (
                   <ActivityIndicator color="#fff" />
