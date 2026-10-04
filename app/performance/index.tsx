@@ -21,16 +21,23 @@ export default function PerformanceScreen() {
   const [selectedSnapshot, setSelectedSnapshot] = useState<any>(null);
   const [topPositions, setTopPositions] = useState<any[]>([]);
   const [totalHistoricalPerformance, setTotalHistoricalPerformance] = useState<number>(0);
+  
+  const [portfolios, setPortfolios] = useState<any[]>([]);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
+  const [showPortfolioSelector, setShowPortfolioSelector] = useState(false);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedPortfolioId]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
-      const [resSnapshots, resInvestments] = await Promise.all([
-        apiClient.get('/investments/portfolio_monthly/'),
-        apiClient.get('/investments/portfolio/')
+      const params = selectedPortfolioId ? { portfolio_id: selectedPortfolioId } : {};
+      const [resSnapshots, resInvestments, resPortfolios] = await Promise.all([
+        apiClient.get('/investments/portfolio_monthly/', { params }),
+        apiClient.get('/investments/portfolio/', { params }),
+        apiClient.get('/portfolios/')
       ]);
       
       const rawSnapshots = resSnapshots.data || [];
@@ -121,6 +128,10 @@ export default function PerformanceScreen() {
         }));
       setTopPositions(sortedInvestments);
       
+      if (resPortfolios.data) {
+        setPortfolios(resPortfolios.data);
+      }
+      
     } catch (e) {
       console.error(e);
       Alert.alert('Erreur', 'Impossible de charger les performances.');
@@ -169,8 +180,23 @@ export default function PerformanceScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Mes Performances</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={styles.backBtn} onPress={() => setShowPortfolioSelector(true)}>
+          <Ionicons name="filter" size={24} color={colors.text} />
+        </TouchableOpacity>
       </View>
+
+      {/* Portfolio Selector Header */}
+      <TouchableOpacity 
+        style={[styles.portfolioSelectorBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+        onPress={() => setShowPortfolioSelector(true)}
+      >
+        <Text style={[styles.portfolioSelectorText, { color: colors.text }]}>
+          {selectedPortfolioId 
+            ? portfolios.find(p => p.id.toString() === selectedPortfolioId)?.name || 'Bedou sélectionné'
+            : 'Vue globale (Défaut)'}
+        </Text>
+        <Ionicons name="chevron-down" size={20} color={colors.text} />
+      </TouchableOpacity>
 
       {/* Tabs */}
       <View style={[styles.tabsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -241,7 +267,11 @@ export default function PerformanceScreen() {
           <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }} style={{ width: '100%' }}>
             <View style={[styles.bambooCard, { backgroundColor: '#481591' }]}>
               
-              <Text style={styles.bambooTitle}>Performance de mes Bedous</Text>
+              <Text style={styles.bambooTitle}>
+                {selectedPortfolioId 
+                  ? `Performance du bedou "${portfolios.find(p => p.id.toString() === selectedPortfolioId)?.name || ''}"`
+                  : 'Performance des bedous'}
+              </Text>
               <Text style={styles.bambooSubtitle}>{selectedSnapshot?.period}</Text>
 
               {/* Returns Cards */}
@@ -313,6 +343,67 @@ export default function PerformanceScreen() {
 
         </View>
       </Modal>
+
+      {/* Modal Portfolio Selector */}
+      <Modal visible={showPortfolioSelector} animationType="fade" transparent>
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowPortfolioSelector(false)}
+        >
+          <View style={[styles.selectorContainer, { backgroundColor: colors.card }]}>
+            <View style={styles.selectorHeader}>
+              <Text style={[styles.selectorTitle, { color: colors.text }]}>Choisir un Bedou</Text>
+              <TouchableOpacity onPress={() => setShowPortfolioSelector(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 300 }}>
+              <TouchableOpacity
+                style={[
+                  styles.selectorOption,
+                  !selectedPortfolioId && { backgroundColor: colors.primary + '20' }
+                ]}
+                onPress={() => {
+                  setSelectedPortfolioId(null);
+                  setShowPortfolioSelector(false);
+                }}
+              >
+                <Text style={[
+                  styles.selectorOptionText, 
+                  { color: colors.text },
+                  !selectedPortfolioId && { fontWeight: '700', color: colors.primary }
+                ]}>
+                  Vue globale (Défaut)
+                </Text>
+                {!selectedPortfolioId && <Ionicons name="checkmark-circle" size={24} color={colors.primary} />}
+              </TouchableOpacity>
+              {portfolios.map((portfolio) => (
+                <TouchableOpacity
+                  key={portfolio.id}
+                  style={[
+                    styles.selectorOption,
+                    selectedPortfolioId === portfolio.id.toString() && { backgroundColor: colors.primary + '20' }
+                  ]}
+                  onPress={() => {
+                    setSelectedPortfolioId(portfolio.id.toString());
+                    setShowPortfolioSelector(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.selectorOptionText, 
+                    { color: colors.text },
+                    selectedPortfolioId === portfolio.id.toString() && { fontWeight: '700', color: colors.primary }
+                  ]}>
+                    {portfolio.name}
+                  </Text>
+                  {selectedPortfolioId === portfolio.id.toString() && <Ionicons name="checkmark-circle" size={24} color={colors.primary} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -336,6 +427,23 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  portfolioSelectorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignSelf: 'center',
+    gap: 8,
+  },
+  portfolioSelectorText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -546,5 +654,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginLeft: 8,
+  },
+  selectorContainer: {
+    width: '90%',
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  selectorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  selectorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  selectorOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  selectorOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
