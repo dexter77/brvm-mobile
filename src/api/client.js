@@ -25,12 +25,43 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/token')) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/token')
+    ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
+
       try {
         const refreshToken = await SecureStore.getItemAsync('refresh_token');
         if (!refreshToken) throw new Error("No refresh token");
@@ -38,9 +69,13 @@ apiClient.interceptors.response.use(
         const { access, refresh } = response.data;
         await SecureStore.setItemAsync('access_token', access);
         if (refresh) await SecureStore.setItemAsync('refresh_token', refresh);
+
+        processQueue(null, access);
+
         originalRequest.headers.Authorization = `Bearer ${access}`;
         return apiClient(originalRequest);
       } catch (e) {
+        processQueue(e, null);
         await SecureStore.deleteItemAsync('access_token');
         await SecureStore.deleteItemAsync('refresh_token');
         if (onUnauthorizedCallback) {
@@ -49,6 +84,8 @@ apiClient.interceptors.response.use(
           try { router.replace('/auth/login'); } catch (err) {}
         }
         return Promise.reject(e);
+      } finally {
+        isRefreshing = false;
       }
     }
     return Promise.reject(error);

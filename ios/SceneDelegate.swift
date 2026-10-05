@@ -1,5 +1,5 @@
 import UIKit
-import Expo
+internal import Expo
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   var window: UIWindow?

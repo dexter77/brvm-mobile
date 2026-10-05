@@ -1324,9 +1324,9 @@ export default function HomeScreen() {
                   apiClient.post(`/ads/${activeAd.id}/interact/`, { type: 'CLICK' }).catch(() => {});
 
                   if (activeAd?.cta_link) {
-                    if (activeAd.cta_link.startsWith('http')) {
+                    if (activeAd.cta_link.startsWith('https://')) {
                       Linking.openURL(activeAd.cta_link);
-                    } else {
+                    } else if (!activeAd.cta_link.startsWith('http://')) {
                       router.push(activeAd.cta_link as any);
                     }
                   }

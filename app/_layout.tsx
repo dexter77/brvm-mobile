@@ -104,10 +104,7 @@ export default function RootLayout() {
             token: expoPushToken,
             platform: Platform.OS,
           });
-          console.log('✅ Token push enregistré:', expoPushToken);
-        } catch (e) {
-          console.log('Erreur enregistrement token:', e);
-        }
+        } catch (_) {}
       }
     });
   }, [isAuthenticated]);
